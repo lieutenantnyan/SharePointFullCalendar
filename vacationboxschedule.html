@@ -1,0 +1,458 @@
+﻿<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery.SPServices/2014.02/jquery.SPServices-2014.02.min.js"></script>
+<script type="text/javascript" src="/SiteAssets/moment.min.js"></script> 
+
+<script  type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.4.0/fullcalendar.min.js"></script>
+<link  type="text/css" rel="stylesheet" href="/SiteAssets/fullcalendar.min.css" />
+<link  type="text/css" rel="stylesheet" href="/SiteAssets/calendarcustom.css" /> 
+<style>
+a.fc-day-grid-event{	color:white;}
+.Site.Support.Fort.Smith{background:#CD5C5C;}
+.Site.Support.Hot.Springs{background:#DB7093;}	
+.Site.Support.Jefferson{background:#FF6347;}
+.Site.Support.Joplin{background:#FFD700;}
+.Site.Support.Kansas{background:#BDB76B;}
+.Site.Support.Lincoln{background:#D8BFD8;}
+.Site.Support.Oklahoma{background:#DA70D6;}
+.Site.Support.Rogers{background:#9370DB;}
+.Site.Support.Springfield.Campus{background:#7CFC00;}
+.Site.Support.Springfield.Region{background:#2E8B57;}
+.Site.Support.St.Louis.Campus{background:#7FFFD4;}
+.Site.Support.St.Louis.Region{background:#87CEFA;}
+.Site.Support.Washington{background:#FFDEAD;}
+.SPRG.HIM.MPI{background:#BC8F8F;}
+.Telecom{background:#D2691E;}
+.Telecom.Call.Center{background:#800000;}
+.Tibco.Administration{background:#2F4F4F;}
+</style>
+
+<h1>Vacation and Box Schedule</h1>
+<div id='aggregatedCalendar'>
+
+</div>
+
+<script type="text/javascript">
+var calendarObject = jQuery( '#aggregatedCalendar' );
+var NY = window.NY || {};
+NY.FullCalendar = NY.FullCalendar ||
+{       
+    initialize: function( )
+    {
+		var listTitle = "Vacation and Box Schedule";   
+        var eventSourceArray = []; 
+        eventSourceArray.push({         
+            events: function( start, end, timezone, callback) {                                                             
+                    callback( NY.FullCalendar.generateEvents( listTitle, start, end ) );                                                                             
+                }          
+        });
+        calendarObject.fullCalendar({
+            height: 450,
+			header: {
+				left: 'prev,next today',
+				center: 'title',
+				right: 'month,basicWeek,basicDay'
+			},
+			timezone: "UTC",
+			disableDragging: true,
+			editable: false,
+			eventClick: function(event) {
+				if (event.url) {
+					window.open(event.url);
+					return false;
+				}
+			},
+            eventSources: eventSourceArray
+        });       
+    },
+    generateEvents : function( listTitle, start, end)
+    {
+        var calendarDate;
+        var eventStartLimitingDate = moment(start, 'YYYY-MM-DD').add('days', -1).format('YYYY-MM-DD');      
+        var selectedView = calendarObject.fullCalendar( 'getView' ).name;
+        var rangeType = "";
+        switch( selectedView ) {
+            case "agendaWeek":
+
+                calendarDate = calendarObject.fullCalendar( 'getDate' ).format().slice( 0,10 );
+                rangeType = "<Month />";
+                break;
+            case "agendaDay":   
+                calendarDate = moment(start, 'YYYY-MM-DD').add('days', -1).format('YYYY-MM-DD');
+                rangeType = "<Week />";         
+                break;
+            default: 
+                calendarDate = calendarObject.fullCalendar( 'getDate' ).format().slice( 0,10 );
+                rangeType = "<Month />";
+
+        }                           
+
+        var webUrl = _spPageContextInfo.siteServerRelativeUrl; 
+        var listName = listTitle;
+        var limitingQuery = NY.FullCalendar.getLimitingQuery( eventStartLimitingDate );
+        var camlQuery = "<And>" + limitingQuery + NY.FullCalendar.getDateRangeOverlapQuery(rangeType) + "</And>";
+        var orderByClause = "<OrderBy><FieldRef Name='EventDate' Ascending='True' /></OrderBy>";        
+        var events = NY.FullCalendar.readEventsFromCalendar(_spPageContextInfo.siteAbsoluteUrl + webUrl, listName, calendarDate, camlQuery, orderByClause);
+        for (var eventCount = 0; eventCount < events.length; eventCount++) {
+            var event = events[eventCount];
+            if ( event.allDay && !event.isRecurrence) {
+                event.end = moment(event.end, 'YYYY-MM-DD').add('days', 1).format('YYYY-MM-DD'); 
+            }
+        }
+        return events;
+    },
+
+    getDateRangeOverlapQuery : function( rangeType )
+    {
+        return  "<DateRangesOverlap><FieldRef Name=\"EventDate\" /><FieldRef Name=\"EndDate\" /><FieldRef Name=\"RecurrenceID\" /><Value Type=\"DateTime\">" + rangeType + "</Value></DateRangesOverlap>";
+    },
+
+    getViewFields : function()
+    {
+        return "<FieldRef Name=\"Title\" /><FieldRef Name=\"EventDate\" /><FieldRef Name=\"EndDate\" /><FieldRef Name=\"fAllDayEvent\" /><FieldRef Name=\"ID\" /><FieldRef Name=\"FileRef\" /><FieldRef Name=\"RecurrenceID\" /><FieldRef Name=\"Location\" /><FieldRef Name=\"fRecurrence\" />";       
+    },
+
+    getLimitingQuery : function ( eventStartLimitingDate )
+    {
+        return "<Geq><FieldRef Name=\"EndDate\"/><Value Type=\"DateTime\">" + eventStartLimitingDate + "</Value></Geq>";
+    },
+
+    formatDateToLocal : function ( date ) 
+    {
+        var dateUTC;
+        if ( typeof date === "string" ) {
+
+            // Convert UTC string to date object
+            var d = new Date();
+            var year = date.split('-')[0];
+            var month = date.split('-')[1] - 1;
+            var day;
+            var hour;
+            var minute;
+            var second;
+            day = date.split('-')[2].split('T')[0];
+            hour = date.split('T')[1].split(':')[0];
+            minute = date.split('T')[1].split(':')[1].split(':')[0];
+            second = date.split('T')[1].split(':')[2].split('Z')[0];
+            dateUTC = new Date( Date.UTC( year, month, day, hour, minute, second ) );
+        }
+        else if ( typeof date === "object" ) {          
+            dateUTC = date;
+        }
+
+        // Create local date strings from UTC date object
+        var year = "" + dateUTC.getFullYear();
+        var month = "" + ( dateUTC.getMonth() + 1 ); // Add 1 to month because months are zero-indexed.
+        var day = "" + dateUTC.getDate();
+        var hour = "" + dateUTC.getHours();
+        var minute = "" + dateUTC.getMinutes();
+        var second = "" + dateUTC.getSeconds();
+
+        // Add leading zeros to single-digit months, days, hours, minutes, and seconds
+        if ( month.length < 2 ) {
+            month = "0" + month;
+        }
+        if ( day.length < 2 ) {
+            day = "0" + day;
+        }
+        if ( hour.length < 2 ) {
+            hour = "0" + hour;
+        }
+        if ( minute.length < 2 ) {
+            minute = "0" + minute;
+        }
+        if ( second.length < 2 ) {
+            second = "0" + second;
+        }
+
+        //return date in format YYYY-MM-DD hh:mm:ss     
+        var localDateString = year + "-" + month + "-" + day + " " + hour + ":" + minute + ":" + second;
+        return localDateString;
+    },
+
+    readEventsFromCalendar : function (webUrl, calendarName, calendarDate, camlQuery, orderByClause)
+    {
+        var listServiceUrl = webUrl + "/_vti_bin/Lists.asmx";       
+        var viewFields = NY.FullCalendar.getViewFields();
+        var events = [];
+        if (calendarName) {
+/*                    "<viewFields><ViewFields>" + viewFields + "</ViewFields></viewFields>" +*/
+            var xmlCall = "<soap:Envelope xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xmlns:xsd='http://www.w3.org/2001/XMLSchema' xmlns:soap='http://schemas.xmlsoap.org/soap/envelope/'> <soap:Body>" + 
+            "<GetListItems xmlns='http://schemas.microsoft.com/sharepoint/soap/'>" +
+            "<listName>" + calendarName + "</listName>" +           
+
+            "<query><Query><Where>" + camlQuery + "</Where>" + orderByClause + "</Query></query>" +
+            "<queryOptions><QueryOptions>" +
+                "<ExpandRecurrence>TRUE</ExpandRecurrence>" +
+                "<DateInUtc>TRUE</DateInUtc>" +
+                "<CalendarDate>"+ calendarDate +"</CalendarDate>" +             
+            "</QueryOptions></queryOptions>" +
+            "</GetListItems>" +
+            "</soap:Body></soap:Envelope>";
+
+            jQuery.ajax({
+                url: listServiceUrl,
+                type: "POST",
+                dataType: "xml",
+                async: false,
+                data: xmlCall,
+                contentType: "text/xml; charset=\"utf-8\"",
+                complete: function (xData, status) {                                
+                    if (status === "success") {
+                        var root = jQuery(xData.responseText);
+                        root.find("listitems").children().children().each(function () {                                                 
+                            var itemID = jQuery( this ).attr( 'ows_ID' ).split( ';#' ).join( '.' );                 
+                            var listUrl = jQuery( this ).attr("ows_FileRef").split( '/Lists/' )[1];
+                            var start;
+                            var end;
+                            var allDay = false; 
+
+                            // Don't perform localization conversion in case of allday events, as in some cases the date gets set to previous or future date
+                            if ( jQuery( this ).attr("ows_fAllDayEvent") == 1 ) {
+                                start = jQuery( this ).attr("ows_EventDate").slice(0,10);
+                                end = jQuery( this ).attr("ows_EndDate").slice(0,10);
+                                allDay = true;
+                            }
+                            else {
+                                start = NY.FullCalendar.formatDateToLocal( jQuery( this ).attr("ows_EventDate") );
+                                end = NY.FullCalendar.formatDateToLocal ( jQuery( this ).attr("ows_EndDate") );
+                            }   
+
+                            events.push({
+                                    "start": start,
+                                    "end": end,
+                                    "title": jQuery( this ).attr("ows_Title"),
+                                    "location": jQuery( this ).attr("ows_Location"),
+                                    "className" : jQuery( this ).attr("ows_LocalSupport"),
+                                    "allDay": allDay,                                   
+                                    "url" : webUrl + "/Lists/" + calendarName + "/DispForm.aspx?ID=" + itemID + '&Source=' + window.location,
+                                    "isRecurrence" : jQuery( this ).attr("ows_fRecurrence") == 1 ? true : false
+                            });                     
+                        });                     
+                    }                                        
+                }               
+            });
+        }
+		console.log(events);
+        return events;  
+    }
+};
+
+SP.SOD.executeFunc('sp.js', 'SP.ClientContext', NY.FullCalendar.initialize);
+
+
+
+
+
+function DisplayCalendar(){
+	$('#calendar').fullCalendar({
+			height: 450,
+			header: {
+				left: 'prev,next today',
+				center: 'title',
+				right: 'month,basicWeek,basicDay'
+			},
+			timezone: "UTC",
+			disableDragging: true,
+			editable: false,
+			eventClick: function(event) {
+				if (event.url) {
+					window.open(event.url);
+					return false;
+				}
+			},
+			
+			events: function(start, end, timezone, callback) {
+   
+				/*var startDate = start.format('YYYY-MM-DD');
+            	var endDate = end.format('YYYY-MM-DD');
+			     var listTitle = 'Vacation and Box Schedule';
+			     var context = SP.ClientContext.get_current();
+			     var calendarDates = context.get_web().get_lists().getByTitle(listTitle);
+				 var camlQuery = new SP.CamlQuery();
+				 camlQuery.set_viewXml("<View>" +
+					   "<Query><Where>" +
+									  "<DateRangesOverlap>" +
+										  "<FieldRef Name='EventDate' />" +
+										  "<FieldRef Name='EndDate' />" +
+										  "<FieldRef Name='RecurrenceID' />" +
+											  "<Value Type='DateTime'>" +
+											  "<Year />" +
+										  "</Value>" +
+									  "</DateRangesOverlap>" +
+							  "</Where></Query>" +
+							  "<QueryOptions>" +
+								  "<CalendarDate><Today /></CalendarDate>" +
+								  "<ExpandRecurrence>TRUE</ExpandRecurrence>" +
+								  "<RecurrenceOrderBy>TRUE</RecurrenceOrderBy>" +
+								  "<ViewAttributes Scope='RecursiveAll'/>" +
+							"</QueryOptions></View>");
+					
+					var listItems = calendarDates.getItems(camlQuery);
+					context.load(listItems);
+					context.executeQueryAsync(function(sender, args) {
+						var events = [];
+					     var enumerator = listItems.getEnumerator();
+					     while (enumerator.moveNext()) {
+					        var listItem = enumerator.get_current();    
+
+								var ID = listItem.get_item('ID');
+								var thisTitle = listItem.get_item('Title');
+								var thisUrl = "/Lists/Vacation%20and%20Box%20Schedule/DispForm.aspx?ID" + ID;
+								
+								 events.push({
+												className: 'test',
+												title: thisTitle,
+												start: listItem.get_item('EventDate'),
+												url: thisUrl
+											});									
+										
+										
+					     }
+					     callback([
+				{
+					title: 'All Day Event',
+					start: new Date(y, m, 1)
+				},
+				{
+					title: 'Long Event',
+					start: new Date(y, m, d-5),
+					end: new Date(y, m, d-2)
+				},
+				{
+					id: 999,
+					title: 'Repeating Event',
+					start: new Date(y, m, d-3, 16, 0),
+					allDay: false
+				},
+				{
+					id: 999,
+					title: 'Repeating Event',
+					start: new Date(y, m, d+4, 16, 0),
+					allDay: false
+				},
+				{
+					title: 'Meeting',
+					start: new Date(y, m, d, 10, 30),
+					allDay: false
+				},
+				{
+					title: 'Lunch',
+					start: new Date(y, m, d, 12, 0),
+					end: new Date(y, m, d, 14, 0),
+					allDay: false
+				},
+				{
+					title: 'Birthday Party',
+					start: new Date(y, m, d+1, 19, 0),
+					end: new Date(y, m, d+1, 22, 30),
+					allDay: false
+				},
+				{
+					title: 'Click for Google',
+					start: new Date(y, m, 28),
+					end: new Date(y, m, 29),
+					url: 'http://google.com/'
+				}
+			]);
+					},function(sender, args) {
+					  alert('Request failed. ' + args.get_message() + '\n' + args.get_stackTrace());
+					});*/
+	var y = 2017, m=7, d=20;
+    var json = [
+				{
+					title: 'All Day Event',
+					start: new Date(y, m, 1)
+				},
+				{
+					title: 'Long Event',
+					start: new Date(y, m, d-5),
+					end: new Date(y, m, d-2)
+				},
+				{
+					id: 999,
+					title: 'Repeating Event',
+					start: new Date(y, m, d-3, 16, 0),
+					allDay: false
+				},
+				{
+					id: 999,
+					title: 'Repeating Event',
+					start: new Date(y, m, d+4, 16, 0),
+					allDay: false
+				},
+				{
+					title: 'Meeting',
+					start: new Date(y, m, d, 10, 30),
+					allDay: false
+				},
+				{
+					title: 'Lunch',
+					start: new Date(y, m, d, 12, 0),
+					end: new Date(y, m, d, 14, 0),
+					allDay: false
+				},
+				{
+					title: 'Birthday Party',
+					start: new Date(y, m, d+1, 19, 0),
+					end: new Date(y, m, d+1, 22, 30),
+					allDay: false
+				},
+				{
+					title: 'Click for Google',
+					start: new Date(y, m, 28),
+					end: new Date(y, m, 29),
+					url: 'http://google.com/'
+				}
+			];
+    callback(json);
+
+    
+    
+    
+    
+    
+    
+				//startDate = start.getFullYear() + "-" + (start.getMonth() + 1) + "-" + start.getDate();
+				//endDate = end.getFullYear() + "-" + (end.getMonth() + 1) + "-" + end.getDate();
+				//var RESTQuery = "/_api/Web/Lists/GetByTitle('Tasks')/items?$select=Title,Status,DueDate,AssignedTo/Title&$expand=AssignedTo&$filter=((DueDate ge '"+startDate+"' and DueDate le '"+endDate+"'))";
+				/*startDate = start.format('YYYY-MM-DD');
+            	endDate = end.format('YYYY-MM-DD');
+				var RESTQuery = "/_api/Web/Lists/GetByTitle('Vacation and Box Schedule')/items?$select=Title,EventDate&$filter=((EventDate ge datetime'"+startDate+"T00:00:00Z' and EventDate le datetime'"+endDate+"T00:00:00Z'))&$top=4999&$OrderBy=EventDate";
+			
+				var call = $.ajax({
+		    		url: _spPageContextInfo.webAbsoluteUrl + RESTQuery,
+		    		type: "GET",
+		    		dataType: "json",
+		    		headers: {
+		    			Accept: "application/json;odata=verbose"
+		    		}
+		   	
+		    	});
+		    	call.done(function (data,textStatus, jqXHR){
+			    	var events = [];
+		    		for (index in data.d.results)
+		    		{
+						events.push({
+									title: data.d.results[index].Title,
+									start: moment.utc(data.d.results[index].EventDate)//moment(data.d.results[index].EventDate).format('DD/MM/YYYY')
+								});
+		    		}
+					callback(events);
+					console.log(events);
+		
+		    	});
+		    	call.fail(function (jqXHR,textStatus,errorThrown){
+		    		alert("Error retrieving Products and Services: " + jqXHR.responseText);
+		    	});*/
+							
+			},
+			eventRender: function(event, element) {
+	            $(element).find(".fc-title").attr("title",event.title);
+	            $(element).find(".fc-time").text('');
+		        
+		     
+        	}
+
+		});
+}
+</script>
